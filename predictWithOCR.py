@@ -1,4 +1,3 @@
-# Ultralytics YOLO 🚀, GPL-3.0 license
 
 import hydra
 import torch
@@ -9,25 +8,27 @@ from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
 
+# Define the global list to store license plate numbers
+plate_numbers = []
+
 def getOCR(im, coors):
-    x,y,w, h = int(coors[0]), int(coors[1]), int(coors[2]),int(coors[3])
-    im = im[y:h,x:w]
+    x, y, w, h = int(coors[0]), int(coors[1]), int(coors[2]), int(coors[3])
+    im = im[y:h, x:w]
     conf = 0.2
 
-    gray = cv2.cvtColor(im , cv2.COLOR_RGB2GRAY)
+    gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
     results = reader.readtext(gray)
     ocr = ""
 
     for result in results:
         if len(results) == 1:
             ocr = result[1]
-        if len(results) >1 and len(results[1])>6 and results[2]> conf:
+        if len(results) > 1 and len(results[1]) > 6 and results[2] > conf:
             ocr = result[1]
     
     return str(ocr)
 
 class DetectionPredictor(BasePredictor):
-
     def get_annotator(self, img):
         return Annotator(img, line_width=self.args.line_thickness, example=str(self.model.names))
 
@@ -64,7 +65,6 @@ class DetectionPredictor(BasePredictor):
             frame = getattr(self.dataset, 'frame', 0)
 
         self.data_path = p
-        # save_path = str(self.save_dir / p.name)  # im.jpg
         self.txt_path = str(self.save_dir / 'labels' / p.stem) + ('' if self.dataset.mode == 'image' else f'_{frame}')
         log_string += '%gx%g ' % im.shape[2:]  # print string
         self.annotator = self.get_annotator(im0)
@@ -89,9 +89,10 @@ class DetectionPredictor(BasePredictor):
                 c = int(cls)  # integer class
                 label = None if self.args.hide_labels else (
                     self.model.names[c] if self.args.hide_conf else f'{self.model.names[c]} {conf:.2f}')
-                ocr = getOCR(im0,xyxy)
+                ocr = getOCR(im0, xyxy)
                 if ocr != "":
                     label = ocr
+                    plate_numbers.append(ocr)  # Append the OCR result to the global list
                 self.annotator.box_label(xyxy, label, color=colors(c, True))
             if self.args.save_crop:
                 imc = im0.copy()
@@ -102,7 +103,6 @@ class DetectionPredictor(BasePredictor):
 
         return log_string
 
-
 @hydra.main(version_base=None, config_path=str(DEFAULT_CONFIG.parent), config_name=DEFAULT_CONFIG.name)
 def predict(cfg):
     cfg.model = cfg.model or "yolov8n.pt"
@@ -110,7 +110,7 @@ def predict(cfg):
     cfg.source = cfg.source if cfg.source is not None else ROOT / "assets"
     predictor = DetectionPredictor(cfg)
     predictor()
-
+    print("Detected license plate numbers:", plate_numbers)  # Print the list of detected license plate numbers
 
 if __name__ == "__main__":
     reader = easyocr.Reader(['en'])
