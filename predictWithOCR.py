@@ -1,4 +1,3 @@
-
 import hydra
 import torch
 import easyocr
@@ -10,6 +9,17 @@ from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
 
 # Define the global list to store license plate numbers
 plate_numbers = []
+
+def inform():
+    string_count = {}
+    
+    for string in plate_numbers:
+        if string in string_count:
+            string_count[string] += 1
+        else:
+            string_count[string] = 1
+
+    print(string_count)
 
 def getOCR(im, coors):
     x, y, w, h = int(coors[0]), int(coors[1]), int(coors[2]), int(coors[3])
@@ -111,6 +121,7 @@ def predict(cfg):
     predictor = DetectionPredictor(cfg)
     predictor()
     print("Detected license plate numbers:", plate_numbers)  # Print the list of detected license plate numbers
+    inform()
 
 if __name__ == "__main__":
     reader = easyocr.Reader(['en'])
