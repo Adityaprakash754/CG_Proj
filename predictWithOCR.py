@@ -36,6 +36,9 @@ def getOCR(im, coors):
         if len(results) > 1 and len(results[1]) > 6 and results[2] > conf:
             ocr = result[1]
     
+    # Remove blank spaces and dashes from the OCR result
+    ocr = ocr.replace(" ", "").replace("-", "")
+    
     return str(ocr)
 
 class DetectionPredictor(BasePredictor):
