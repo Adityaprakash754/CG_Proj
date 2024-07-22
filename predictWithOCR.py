@@ -1,3 +1,8 @@
+import json
+import smtplib
+import os
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import hydra
 import torch
 import easyocr
@@ -6,6 +11,10 @@ from ultralytics.yolo.engine.predictor import BasePredictor
 from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Define the global list to store license plate numbers
 plate_numbers = []
@@ -23,7 +32,7 @@ def inform():
 
 def getOCR(im, coors):
     x, y, w, h = int(coors[0]), int(coors[1]), int(coors[2]), int(coors[3])
-    im = im[y:h, x:w]
+    im = im[y:y+h, x:x+w]
     conf = 0.2
 
     gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
@@ -33,13 +42,45 @@ def getOCR(im, coors):
     for result in results:
         if len(results) == 1:
             ocr = result[1]
-        if len(results) > 1 and len(results[1]) > 6 and results[2] > conf:
+        if len(results) > 1 and result[2] > conf:
             ocr = result[1]
     
     # Remove blank spaces and dashes from the OCR result
     ocr = ocr.replace(" ", "").replace("-", "")
     
-    return str(ocr)
+    return str(ocr).lower()  # Convert to lowercase
+
+def send_email(email, plate_number):
+    sender_email = os.getenv('EMAIL')
+    sender_password = os.getenv('EMAIL_PASSWORD')
+    subject = "Detected License Plate"
+    body = f"The license plate {plate_number} has been detected."
+
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, email, msg.as_string())
+        print(f"Email sent to {email} regarding plate number {plate_number}.")
+    except Exception as e:
+        print(f"Failed to send email to {email}: {e}")
+
+def search_and_notify(plate_numbers):
+    with open('emails.json', 'r') as file:
+        email_data = json.load(file)
+
+    for plate_number in plate_numbers:
+        email = email_data.get(plate_number)
+        if email:
+            send_email(email, plate_number)
+        else:
+            print(f"No email found for license plate: {plate_number}")
 
 class DetectionPredictor(BasePredictor):
     def get_annotator(self, img):
@@ -125,6 +166,7 @@ def predict(cfg):
     predictor()
     print("Detected license plate numbers:", plate_numbers)  # Print the list of detected license plate numbers
     inform()
+    search_and_notify(plate_numbers)
 
 if __name__ == "__main__":
     reader = easyocr.Reader(['en'])
