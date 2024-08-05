@@ -12,6 +12,7 @@ from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
 from dotenv import load_dotenv
+import re
 
 # Load environment variables from .env file
 load_dotenv()
@@ -44,11 +45,17 @@ def getOCR(im, coors):
             ocr = result[1]
         if len(results) > 1 and result[2] > conf:
             ocr = result[1]
+
+    return ocr
     
-    # Remove blank spaces and dashes from the OCR result
-    ocr = ocr.replace(" ", "").replace("-", "")
-    
-    return str(ocr).lower()  # Convert to lowercase
+    # pattern = re.compile(r'([A-Z]{2})(\d{2}) ([A-Z]{3})')
+    # match = pattern.search(ocr)
+
+
+    # if match:
+    #     return match.group(0)
+    # return ""
+
 
 def send_email(email, plate_number):
     sender_email = os.getenv('EMAIL')
